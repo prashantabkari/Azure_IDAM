@@ -9,22 +9,21 @@ from msal import ConfidentialClientApplication
 
 
 def lambda_handler(event, context):
-    # TODO implement
     
     #Get Client ID and Secret
     client = boto3.client('ssm')
     response = client.get_parameters(
             Names=[
-                "AzureClientCredentials",
-                "AzureClientId"
+                "AzureGraphAPIClientSecret",
+                "AzureGraphAPIClientID"
             ],
             WithDecryption=False
         )
     
     for parameter in response['Parameters']:
-        if parameter['Name'] == "AzureClientCredentials":
+        if parameter['Name'] == "AzureGraphAPIClientSecret":
             clientsecret = parameter['Value']
-        elif parameter['Name'] == "AzureClientId":
+        elif parameter['Name'] == "AzureGraphAPIClientID":
             clientid = parameter['Value']
             
     app = ConfidentialClientApplication(clientid,
@@ -42,7 +41,7 @@ def lambda_handler(event, context):
         user_data = requests.get("https://graph.microsoft.com/v1.0/users",
                                 headers={'Authorization': 'Bearer ' + result['access_token']}, ).json()
 
-    print(user_data)
+    	print(user_data)
                                     
     return {
         'statusCode': 200,
