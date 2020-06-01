@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create required resources for Azure AD Sign-In "
+Parameters:
+  KMSAdminArn:
+    Type: String
+    Description: 'The ARN of a user or role who will administer the KMS CMK'
+    AllowedPattern: 'arn:aws:iam::\d{12}:*?[a-zA-Z_0-9+=,.@\-_/]+'
+
+
+Resources:
+
+
+  IdamCMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: 'Customer Managed key used to protect Azure AD client id and client secret'
+      Enabled: True
+      EnableKeyRotation: True
+      KeyPolicy:
+        Version: "2012-10-17"
+        Id: "key-default-1"
+        Statement:
+          -
+            Sid: "Allow administration of the key"
+            Effect: "Allow"
+            Principal: 
+              AWS: !Ref KMSAdminArn
+            Action:
+              - "kms:Create*"
+              - "kms:Describe*"
+              - "kms:Enable*"
+              - "kms:List*"
+              - "kms:Put*"
+              - "kms:Update*"
+              - "kms:Revoke*"
+              - "kms:Disable*"
+              - "kms:Get*"
+              - "kms:Delete*"
+              - "kms:ScheduleKeyDeletion"
+              - "kms:CancelKeyDeletion"
+            Resource: "*"
+          -
+            Sid: "Allow use of the key by Azure IDAM Lambda"
+            Effect: "Allow"
+            Principal:
+              AWS: !GetAtt 'LambdaIAMRole.Arn'
+            Action:
+              - "kms:Decrypt"
+            Resource: "*"
+          -
+            Sid: "Allow use of the key by human users"
+            Effect: "Allow"
+            Principal:
+              AWS: !Ref KMSAdminArn
+            Action:
+              - "kms:Encrypt"
+            Resource: "*"
+
+
+  AzureKMSAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: "alias/azureopskey"
+      TargetKeyId: !Ref IdamCMSKey
+
+  LambdaIAMRole:  
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
+      RoleName: "Custom-Lambda-AzureADLogs"
